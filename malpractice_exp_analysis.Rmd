@@ -1,0 +1,66 @@
+---
+title: "malpractice_exp_analysis"
+author: "Maxwell Fritz"
+date: "4/10/2019"
+output: html_document
+---
+
+--- title: "malpractice" output: word_document --- 
+```{r} 
+install.packages('tidyverse') 
+install.packages('naniar') 
+install.packages("ggpubr") 
+library(naniar) 
+library(tidyverse) 
+library(ggpubr) 
+
+
+raw <- read.csv(url("https://raw.githubusercontent.com/maxfritz/malpractice/master/NPDB1810.CSV")) 
+
+object.size(raw)
+dim(raw)
+head(raw) 
+
+# check missing values
+raw %>%
+  miss_var_summary()%>%
+  filter(n_miss > 0)
+
+raw %>%
+  miss_var_summary()%>%
+  filter(pct_miss == 100)
+```
+
+```{r}
+# missing vals
+missing_values<-sapply(raw, function(x) sum(is.na(x)))
+missing_values
+missing_df <- data.frame(keyName=names(missing_values), value=missing_values, row.names=NULL)
+missing_df %>%
+  filter(value>0)
+```
+
+```{r}
+# missing variables, probably delete
+p<-ggplot(missing_df)+
+  geom_bar(stat="identity", mapping = aes(x=keyName, y=value,fill=value))+ 
+  geom_text( 
+    mapping=aes(keyName, value, label=value, hjust=0 ), 
+    size = 3, 
+    check_overlap = TRUE, 
+    angle = 90)+ 
+  coord_cartesian(ylim = c(0, 750000))+ 
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))+ 
+  theme(axis.text = element_text(size = 8)) 
+
+ggpar(p, 
+      main = "Missing values by variable", 
+      ylab = "Count", 
+      xlab = "Variable", 
+      font.main = c(14,"bold.italic", "#838383"), 
+      font.x = c(14,"#838383"), 
+      font.y = c(14, "#838383")) 
+
+
+```
