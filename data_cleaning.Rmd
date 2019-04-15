@@ -1,0 +1,78 @@
+---
+title: "data_clean"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+install.packages('tidyverse')
+install.packages('naniar') 
+install.packages('visdat')
+library('visdat')
+library("tidyverse")
+library('naniar')
+```
+```{r}
+#import and look through data
+raw <- read.csv(url("https://raw.githubusercontent.com/maxfritz/buan/master/dog_id_max_ranks-Table%201.csv"), header=TRUE, sep=",")
+```
+```{r echo=FALSE}
+#object.size(raw)
+dim(raw)
+head(raw) 
+summary(raw)
+```
+
+```{r}
+# check missing values
+raw %>%
+  miss_var_summary()%>%
+  filter(n_miss > 0)
+
+raw %>%
+  miss_var_summary()%>%
+  filter(pct_miss == 100)
+```
+```{r echo=FALSE}
+missing_values<-sapply(raw, function(x) sum(is.na(x)))
+missing_values
+missing_df <- data.frame(keyName=names(missing_values), value=missing_values, row.names=NULL)
+missing_df %>%
+  filter(value>0)
+```
+```{r}
+gg_miss_var(raw)+theme_bw()
+vis_dat(raw)
+```
+```{r}
+# we will omit two empty variables, X and X.1
+# in addition, we decided to omit some time label variables that appear to be solely administrative in purpose.
+# all variables omitted are:
+#           X
+#           X.1
+#           Mean.ITI..days.
+#           Mean.ITI..minutes.
+#           Median.ITI..days.
+#           Median.ITI..minutes.
+# and brings our total number of variables to 26.
+
+drop_vars <- names(raw) %in% c('X','X.1','Mean.ITI..days.','Mean.ITI..minutes.','Median.ITI..days.','Median.ITI..minutes.') 
+data <- raw[!drop_vars]
+```
+
+```{r}
+levels(data$Membership_Type)
+summary(data$Membership_Type)
+
+# Per data description, data should only include 5 levels for the Membership factor variable.
+# Therefore, we exclude those data points with membership values outside of these stated levels (1:5).
+
+data <- data %>%
+  filter(Membership_Type %in% c(1:5))
+summary(data$Membership_Type)
+
+data$Membership_Type <- factor(data$Membership_Type)
+summary(data$Membership_Type)
+```
