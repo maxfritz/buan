@@ -102,6 +102,7 @@ my_data_filter$City <- factor(my_data_filter$City)
 my_data_filter$Country <- factor(my_data_filter$Country)
 my_data_filter$State <- factor(my_data_filter$State)
 my_data_filter$Gender <- factor(my_data_filter$Gender)
+my_data_filter$Breed <- factor(my_data_filter$Breed)
 
 my_data_filter %>%
   group_by(City) %>%
@@ -117,7 +118,9 @@ my_data_filter2 %>%
   group_by(Breed) %>%
   tally()%>%
   arrange(-n)
+```
 
+```{r}
 my_data_filter %>%
   group_by(Breed_Group) %>%
   tally()%>%
@@ -165,7 +168,7 @@ my_data_filter %>%
 
 
 # Breed has many factors
-length(unique(my_data$Breed))
+length(unique(my_data_filter$Breed))
 
 # Create table showing frequency of each levels occurrence.
 table1 <- data.frame(table(my_data_filter$Breed))
@@ -174,20 +177,49 @@ table1 <- data.frame(table(my_data_filter$Breed))
 table1 <- table1[order(-table1$Freq),]
 table1
 
-noChange <- table1$Var1[1:25]
+noChange <- table1$Var1[1:27]
 noChange <- factor(noChange)
 
-my_data_filter$Breed <- (ifelse(my_data_filter$Breed %in% noChange, my_data_filter$Breed, "Mixed/Other")) 
+my_data_filter$Breed <- (ifelse(my_data_filter$Breed %in% noChange, my_data_filter$Breed, "Other")) 
 
 my_data_filter$Breed = factor(my_data_filter$Breed)
-length(unique(my_data_filter$newFactor))
+length(unique(my_data_filter$Breed))
 
 my_data_filter %>%
   group_by(Breed) %>%
   tally() %>%
   arrange(-n)
 
-my_data_filter$Breed <- revalue(my_data_filter$Breed, c("951"="Mixed/Other", "969"="Mixed/Other"))
+my_data_filter$Breed <- revalue(my_data_filter$Breed, 
+                                c("723"="Other", 
+                                  "736"="Other",
+                                  "632"="Labrador Retriever",
+                                  "539"="Golden Retriever",
+                                  "486"="German Shepherd Dog",
+                                  "105"="Australian Shepherd",
+                                  "218"="Border Collie",
+                                  "789"="Poodle",
+                                  "538"="Golden Doodle",
+                                  "631"="Labradoodle",
+                                  "892"="Shih Tzu",
+                                  "657"="Labrador Retriever-Golden Retriever Mix",
+                                  "277"="Boxer",
+                                  "715"="Miniature Schnauzer",
+                                  "883"="Shetland Sheepdog",
+                                  "425"="Dachshund",
+                                  "145"="Beagle",
+                                  "448"="Doberman Pinscher",
+                                  "406"="Cockapoo",
+                                  "468"="English Springer Spaniel",
+                                  "1000"="American Pit Bull Terrier",
+                                  "35"="Chihuahua",
+                                  "361"="Yorkshire Terrier",
+                                  "267"="Boston Terrier",
+                                  "580"="Havanese",
+                                  "550"="Golden Retriever-Labrador Retriever Mix",
+                                  "348"="Cavalier King Charles Spaniel"
+                                  ))
+
 write.csv(my_data_filter, file = "final_data.csv", row.names = FALSE)
-my_data_filter <- select (my_data_filter,-c(newFactor))
+
 ```
