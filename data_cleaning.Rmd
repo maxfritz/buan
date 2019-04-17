@@ -185,6 +185,6 @@ my_data_filter %>%
   tally()%>%
   arrange(-n)
 
-write.csv(my_data_filter, file = "final_data.csv")
+write.csv(my_data_filter, file = "final_data.csv", row.names = FALSE)
 my_data_filter <- select (my_data_filter,-c(newFactor))
 ```
