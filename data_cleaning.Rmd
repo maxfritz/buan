@@ -10,6 +10,8 @@ output:
 install.packages('tidyverse')
 install.packages('naniar') 
 install.packages('visdat')
+install.packages('plyr')
+library('plyr')
 library('visdat')
 library("tidyverse")
 library('naniar')
@@ -48,7 +50,7 @@ missing_df %>%
 ```
 ```{r}
 gg_miss_var(raw)+theme_bw()
-vis_dat(raw)
+vis_dat(raw)+coord_flip()
 ```
 ```{r}
 # we will omit two empty variables, X and X.1
@@ -111,7 +113,7 @@ my_data_filter %>%
   tally()%>%
   arrange(-n)
 
-my_data_filter %>%
+my_data_filter2 %>%
   group_by(Breed) %>%
   tally()%>%
   arrange(-n)
@@ -181,10 +183,11 @@ my_data_filter$Breed = factor(my_data_filter$Breed)
 length(unique(my_data_filter$newFactor))
 
 my_data_filter %>%
-  group_by(newFactor) %>%
-  tally()%>%
+  group_by(Breed) %>%
+  tally() %>%
   arrange(-n)
 
+my_data_filter$Breed <- revalue(my_data_filter$Breed, c("951"="Mixed/Other", "969"="Mixed/Other"))
 write.csv(my_data_filter, file = "final_data.csv", row.names = FALSE)
 my_data_filter <- select (my_data_filter,-c(newFactor))
 ```
