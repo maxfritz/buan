@@ -7,7 +7,6 @@ output: html_document
 
 # Classification Tree with rpart
 library(rpart)
-my_data <- data
 
 # grow tree 
 fit <- rpart(Subscribed~Gender+Total.Tests.Completed+Gender+newFactor+Weight+Dog_Fixed+DNA_Tested+Dimension+Sign_in_Count,
@@ -21,19 +20,5 @@ summary(fit)
 plot(fit, uniform=TRUE, 
    main="Classification Tree for Subscription")
 text(fit, use.n=TRUE, all=TRUE, cex=.6)
-
-# Breed has many factors
-length(unique(my_data$Breed))
-
-# Create table showing frequency of each levels occurrence.
-table1 <- data.frame(table(my_data$Breed))
-
-# Orders the table in descending order of frequency.
-table1 <- table1[order(-table1$Freq),]
-
-noChange <- table1$Var1[1:26]
-noChange <- factor(noChange)
-
-my_data$newFactor <- (ifelse(my_data$Breed %in% noChange, my_data$Breed, "Other")) 
 
 ```
