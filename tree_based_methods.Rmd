@@ -5,20 +5,81 @@ output: html_document
 
 ```{r setup, include=FALSE}
 
-# Classification Tree with rpart
+install.packages("caret")
+install.packages("e1071")
 library(rpart)
+library(tree)
+library(randomForest)
+library(tidyverse)
+library(caret)
+library(e1071)
+library(gridExtra)
+library(plyr)
 
-# grow tree 
-fit <- rpart(Subscribed~Gender+Total.Tests.Completed+Gender+newFactor+Weight+Dog_Fixed+DNA_Tested+Dimension+Sign_in_Count,
-   method="class", data=my_data)
+my_data_filter$Breed <- factor(my_data_filter$Breed)
+my_data_filter$Dog_Fixed <- factor(my_data_filter$Dog_Fixed)
+my_data_filter$DNA_Tested <- factor(my_data_filter$DNA_Tested)
+my_data_filter$Free_Start_User <- factor(my_data_filter$Free_Start_User)
+my_data_filter$Subscribed <- factor(my_data_filter$Subscribed)
+
+#-------------------------------------------------------------
+# decision tree
+#-------------------------------------------------------------
+
+fit <- rpart(Subscribed~Breed_Type+Gender+Breed+Weight+Dog_Fixed+
+               Breed_Group+Max_Dogs+Free_Start_User,
+   method="class", data=my_data_filter,
+   control=rpart.control(minsplit=5, minbucket=10, cp=0.0005))
 
 printcp(fit)
 plotcp(fit)
-summary(fit) 
+summary(fit)
+str(fit)
+str(fit$y)
 
-# plot tree 
-plot(fit, uniform=TRUE, 
-   main="Classification Tree for Subscription")
-text(fit, use.n=TRUE, all=TRUE, cex=.6)
+# variable importance for tree, ranked
+tree_importance <- fit$variable.importance
+tree_importance <- as.data.frame(as.table(tree_importance))
+tree_importance <- arrange(tree_importance,Freq)
+
+#-------------------------------------------------------------
+# random forest
+#-------------------------------------------------------------
+
+rf1 <-randomForest(Subscribed~Breed_Type+Gender+Breed+Weight+
+                    Dog_Fixed+Max_Dogs+Free_Start_User+Breed_Group,
+                   data=my_data_filter,mtry=2,ntree=500)
+
+#variable importance for random forest, ranked
+importance <- as.data.frame(as.table(importance(rf1)))
+importance <- arrange(importance,Freq)
+
+#confusion matrix for forest
+confusionMatrix(data = my_data_filter$Subscribed, rf1$predicted)
+
+  
+#-------------------------------------------------------------
+# plot
+#-------------------------------------------------------------
+
+# variable importance plot for tree
+tree_gini <- tree_importance %>%
+  ggplot()+
+  geom_col(mapping=aes(x=reorder(Var1,-Freq),y=Freq),
+           fill="#00DDDD",color="white")+
+  ylab("Mean Decrease Gini - Tree")+xlab("Variable")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+# variable importance plot for forest
+forest_gini <- importance %>%
+  ggplot()+
+  geom_col(mapping=aes(x=reorder(Var1,-Freq),y=Freq),
+           fill="#00DDDD",color="white")+
+  ylab("Mean Decrease Gini - Forest")+xlab("Variable")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# plot both
+grid.arrange(tree_gini, forest_gini, ncol=2)
 
 ```

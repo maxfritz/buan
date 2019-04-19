@@ -216,7 +216,7 @@ my_data_filter$Breed <- revalue(my_data_filter$Breed,
                                   "361"="Yorkshire Terrier",
                                   "267"="Boston Terrier",
                                   "580"="Havanese",
-                                  "550"="Golden Retriever-Labrador Retriever Mix",
+                                  "Labrador Retriever-Golden Retriever Mix"="Golden Retriever-Labrador Retriever Mix",
                                   "348"="Cavalier King Charles Spaniel"
                                   ))
 
