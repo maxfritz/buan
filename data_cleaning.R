@@ -1,12 +1,3 @@
----
-title: "data_clean"
-output:
-  html_document:
-    df_print: paged
-  word_document: default
----
-
-```{r setup, include=FALSE}
 install.packages('tidyverse')
 install.packages('naniar') 
 install.packages('visdat')
@@ -15,12 +6,10 @@ library('plyr')
 library('visdat')
 library("tidyverse")
 library('naniar')
-```
-```{r}
+
 #import and look through data
 raw <- read.csv(url("https://raw.githubusercontent.com/maxfritz/buan/master/dog_id_max_ranks-Table%201.csv"), header=TRUE, sep=",")
-```
-```{r echo=FALSE}
+
 #object.size(raw)
 dim(raw)
 head(raw) 
@@ -33,37 +22,21 @@ data$Free_Start_User <- factor(data$Free_Start_User)
 data$Subscribed <- factor(data$Subscribed)
 data$Membership_ID <- factor(data$Membership_ID)
 
-yamm <- raw%>%
-  filter(Membership_Type == 2)%>%
-  filter(Subscribed == 0)
-```
-
-```{r}
 # check missing values
 raw %>%
   miss_var_summary()%>%
   filter(n_miss > 0)
 
-raw %>%
-  miss_var_summary()%>%
-  filter(pct_miss == 100)
-```
-```{r echo=FALSE}
+
+#graph some missing values
 missing_values<-sapply(raw, function(x) sum(is.na(x)))
 missing_values
 missing_df <- data.frame(keyName=names(missing_values), value=missing_values, row.names=NULL)
 missing_df %>%
   filter(value>0)
-```
-```{r}
 gg_miss_var(raw)+theme_bw()
 vis_dat(data)+coord_flip()
 
-ggplot(my_data_filter)+
-  geom_bar(mapping=aes(Gender)) +
-  facet_grid(~Breed_Type)
-```
-```{r}
 # we will omit two empty variables, X and X.1
 # in addition, we decided to omit some time label variables that appear to be solely administrative in purpose.
 # zip is largely junk and Last_Active_At alone is not useful.
@@ -81,14 +54,12 @@ ggplot(my_data_filter)+
 
 drop_vars <- names(raw) %in% c('X','X.1','Mean.ITI..days.','Mean.ITI..minutes.','Median.ITI..days.','Median.ITI..minutes.', 'Zip','Last_Active_At','Membership_ID') 
 data <- raw[!drop_vars]
-```
 
-```{r}
 levels(data$Membership_Type)
 summary(data$Membership_Type)
 
 # Per data description, data should only include 5 levels for the Membership factor variable.
-# Therefore, we exclude those data points with membership values outside of these stated levels (1:5).
+# Therefore, we exclude those data points with membership values outside of these stated levels (1:5) as erroneous
 
 data <- data %>%
   filter(Membership_Type %in% c(1:5))
@@ -97,7 +68,7 @@ summary(data$Membership_Type)
 data$Membership_Type <- factor(data$Membership_Type)
 summary(data$Membership_Type)
 
-#last_data_clean
+#last data clean
 my_data <- data
 
 my_data_filter <- my_data%>%
@@ -115,70 +86,7 @@ my_data_filter$State <- factor(my_data_filter$State)
 my_data_filter$Gender <- factor(my_data_filter$Gender)
 my_data_filter$Breed <- factor(my_data_filter$Breed)
 
-my_data_filter %>%
-  group_by(City) %>%
-  tally()%>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Country) %>%
-  tally()%>%
-  arrange(-n)
-
-my_data_filter2 %>%
-  group_by(Breed) %>%
-  tally()%>%
-  arrange(-n)
-```
-
-```{r}
-my_data_filter %>%
-  group_by(Breed_Group) %>%
-  tally()%>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Breed_Type) %>%
-  tally()%>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(State) %>%
-  tally()%>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Gender) %>%
-  tally()%>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Zip) %>%
-  tally() %>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Weight) %>%
-  tally() %>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Dimension) %>%
-  tally() %>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Free_Start_User) %>%
-  tally() %>%
-  arrange(-n)
-
-my_data_filter %>%
-  group_by(Exclude) %>%
-  tally() %>%
-  arrange(-n)
-
-
-# Breed has many factors
+# Breed has too many factors
 length(unique(my_data_filter$Breed))
 
 # Create table showing frequency of each levels occurrence.
@@ -188,6 +96,7 @@ table1 <- data.frame(table(my_data_filter$Breed))
 table1 <- table1[order(-table1$Freq),]
 table1
 
+# shrink factor levels into top 25 (25 distinct + 2 mislabelled but equivalent pairs)
 noChange <- table1$Var1[1:27]
 noChange <- factor(noChange)
 
@@ -229,8 +138,6 @@ my_data_filter$Breed <- revalue(my_data_filter$Breed,
                                   "580"="Havanese",
                                   "Labrador Retriever-Golden Retriever Mix"="Golden Retriever-Labrador Retriever Mix",
                                   "348"="Cavalier King Charles Spaniel"
-                                  ))
+                                ))
 
 write.csv(my_data_filter, file = "final_data.csv", row.names = FALSE)
-
-```
