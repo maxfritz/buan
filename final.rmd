@@ -1,0 +1,403 @@
+---
+title: 
+author: 
+date: 
+output: 
+  pdf_document:
+    toc: true
+    toc_depth: 4
+---
+\pagebreak
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(modelr)
+library(class)
+library(e1071)
+library(caret)
+library(rpart)
+library(randomForest)
+library(gridExtra)
+library(plyr)
+library(visdat)
+library(naniar)
+```
+\pagebreak
+# Executive summary
+
+Our group is going to use a dataset called Dognition, which is provided by a partnership company named Dognition. Dognition provides a product that helps dog owners to understand the personalities and capabilities of their fur kids. For example, some dog owners might say that their dogs never follow their commands. Surprisingly, the result from our product might tell you that your dogs might simply don’t remember what your command is. The product includes several tests and laboratory games for dog. By reviewing the performance result of their dogs, dog owners can have deeper understanding of their dogs. 
+
+Our team is focused on whether the dog owners that our sales team contacts will subscribe to our service. Using the variables available to us, including previously labelled sales leads, our goal is to accurately predict that who is going to subscribe the product to provide insight to our team. 
+
+There are 30 variables in the dataset. We explore the dataset to gain the understanding to figure out which variables effect the owners to subscribe the product. Furthermore, we will use five different methods that we have learned in class to do the prediction. The methods include Logistic Regression, Linear Discriminant Analysis(LDA), Quadratic Discriminant Analysis(QDA), K-Nearest Neighbor(KNN), and Random Forest. After using all these methods, we will compare the results and decide which method has the lowest prediction error rate. Finally, we can provide a report to help the company develop their business.
+\pagebreak
+
+# Project motivation/background
+\pagebreak
+
+# Data description
+\pagebreak
+
+#Exploratory data analysis
+## Data import and variable analysis
+```{r}
+# Exploratory data analysis
+raw <- read.csv(url("https://raw.githubusercontent.com/maxfritz/buan/master/dog_id_max_ranks-Table%201.csv"), header=TRUE, sep=",")
+
+#object.size(raw)
+dim(raw)
+```
+
+```{r}
+head(raw)
+```
+
+```{r}
+summary(raw)
+```
+
+```{r}
+# check for missing values
+raw %>%
+  miss_var_summary()%>%
+  filter(n_miss > 0)
+```
+
+```{r}
+#graph some missing values
+missing_values<-sapply(raw, function(x) sum(is.na(x)))
+missing_values
+```
+
+```{r}
+missing_df <- data.frame(keyName=names(missing_values), value=missing_values, row.names=NULL)
+missing_df %>%
+  filter(value>0) %>%
+  arrange(-value)
+```
+```{r}
+vis_dat(raw)+coord_flip()
+```
+
+We omit two empty variables, X and X.1. In addition, we decided to omit some time labelled variables that appear to be solely administrative in purpose, i.e. per the data descriptions, they hold little information and do not have any use in analysis. Furthermore, the ZIP code variable is utilized sparingly and is mostly junk data. Membership_ID is a foreign key for another payments database but holds no use for us in this analysis. Finally, Last_Active_At, while potentially a valuable value for salespersons, is not useful in its current form without other variables to aid our understanding in its form. 
+
+Our omitted variables are as follows:
+           X
+           X.1
+           Mean.ITI..days.
+           Mean.ITI..minutes.
+           Median.ITI..days.
+           Median.ITI..minutes.
+           ZIP
+           Last_Active_At
+           Membership_ID
+bringing our total number of variables to 23.
+
+```{r}
+#variables to drop
+drop_vars <- names(raw) %in% c('X','X.1','Mean.ITI..days.','Mean.ITI..minutes.','Median.ITI..days.','Median.ITI..minutes.', 'Zip','Last_Active_At','Membership_ID') 
+data <- raw[!drop_vars]
+```
+## Data Cleaning
+```{r}
+data$Dog.ID <- factor(data$Dog.ID)
+data$User.ID <- factor(data$User.ID)
+data$Gender <- factor(data$Gender)
+data$Breed <- factor(data$Breed)
+data$Breed_Type <- factor(data$Breed_Type)
+data$Breed_Group <- factor(data$Breed_Group)
+data$Dog_Fixed <- factor(data$Dog_Fixed)
+data$DNA_Tested <- factor(data$DNA_Tested)
+data$Free_Start_User <- factor(data$Free_Start_User)
+data$Subscribed <- factor(data$Subscribed)
+data$Membership_Type <- factor(data$Membership_Type)
+```
+
+```{r}
+levels(data$Membership_Type)
+
+# Per data description, data should only include 5 levels for the Membership factor variable.
+# Therefore, we exclude those data points with membership values outside of these stated levels (1:5) as erroneous
+
+data <- data %>%
+  filter(Membership_Type %in% c(1:5))
+summary(data$Membership_Type)
+```
+
+```{r}
+dognition <- data%>%
+  filter(Breed != "I Don't Know")%>%
+  filter(City != "") %>%
+  filter(Country != "")%>%
+  filter(State != "")%>%
+  filter(City != "N/A") %>%
+  filter(Country != "N/A")%>%
+  filter(State != "N/A")
+
+dognition$Membership_Type <- factor(dognition$Membership_Type)
+dognition$City <- factor(dognition$City)
+dognition$Country <- factor(dognition$Country)
+dognition$State <- factor(dognition$State)
+dognition$Gender <- factor(dognition$Gender)
+dognition$Breed <- factor(dognition$Breed)
+
+
+# Breed has too many factors for analysis
+length(unique(dognition$Breed))
+```
+
+```{r}
+# Create table showing frequency of each levels occurrence.
+table1 <- data.frame(table(dognition$Breed))
+
+# Orders the table in descending order of frequency.
+table1 <- table1[order(-table1$Freq),]
+table1
+```
+
+```{r}
+
+# shrink factor levels into top 25 (25 distinct + 2 mislabelled but equivalent pairs)
+noChange <- table1$Var1[1:27]
+noChange <- factor(noChange)
+
+dognition$Breed <- (ifelse(dognition$Breed %in% noChange, dognition$Breed, "Other")) 
+
+dognition$Breed = factor(dognition$Breed)
+length(unique(dognition$Breed))
+
+dognition %>%
+  group_by(Breed) %>%
+  tally() %>%
+  arrange(-n)
+
+# r assigns level integers to char names in a random/unordered format so this will not function every time.
+# this is the code we used but note that this won't work. Code still works fine but this lets us access
+# dog breed names directly for reference later in the project
+dognition$Breed <- revalue(dognition$Breed, 
+                                c("723"="Other", 
+                                  "736"="Other",
+                                  "632"="Labrador Retriever",
+                                  "539"="Golden Retriever",
+                                  "486"="German Shepherd Dog",
+                                  "105"="Australian Shepherd",
+                                  "218"="Border Collie",
+                                  "789"="Poodle",
+                                  "538"="Golden Doodle",
+                                  "631"="Labradoodle",
+                                  "892"="Shih Tzu",
+                                  "657"="Labrador Retriever-Golden Retriever Mix",
+                                  "277"="Boxer",
+                                  "715"="Miniature Schnauzer",
+                                  "883"="Shetland Sheepdog",
+                                  "425"="Dachshund",
+                                  "145"="Beagle",
+                                  "448"="Doberman Pinscher",
+                                  "406"="Cockapoo",
+                                  "468"="English Springer Spaniel",
+                                  "1000"="American Pit Bull Terrier",
+                                  "35"="Chihuahua",
+                                  "361"="Yorkshire Terrier",
+                                  "267"="Boston Terrier",
+                                  "580"="Havanese",
+                                  "Labrador Retriever-Golden Retriever Mix"="Golden Retriever-Labrador Retriever Mix",
+                                  "348"="Cavalier King Charles Spaniel"
+                                ))
+
+
+```
+
+```{r, echo=FALSE}
+dognition <- read.csv(url("https://raw.githubusercontent.com/maxfritz/buan/master/final_data.csv"), header=TRUE, sep=",")
+data<-dognition
+data$Dog.ID <- factor(data$Dog.ID)
+data$User.ID <- factor(data$User.ID)
+data$Gender <- factor(data$Gender)
+data$Breed <- factor(data$Breed)
+data$Breed_Type <- factor(data$Breed_Type)
+data$Breed_Group <- factor(data$Breed_Group)
+data$Dog_Fixed <- factor(data$Dog_Fixed)
+data$DNA_Tested <- factor(data$DNA_Tested)
+data$Free_Start_User <- factor(data$Free_Start_User)
+data$Subscribed <- factor(data$Subscribed)
+data$Membership_Type <- factor(data$Membership_Type)
+dognition <- data
+```
+\pagebreak
+
+# Models and analysis
+## Sampling
+```{r}
+train <- sample(1:11320, 8000, replace = FALSE)
+train.dogn<-dognition[train,]  
+test.dogn<-dognition[-train,]
+```
+
+## Logistic Regression
+```{r}
+log.pred = glm(Subscribed ~ Total.Tests.Completed +Free_Start_User +DNA_Tested +Dog_Fixed +Max_Dogs +Gender + Birthday +Breed_Type +Membership_Type + Time.diff.between.first.and.last.game..days. +Sign_in_Count, data=train.dogn, family=binomial)
+summary(log.pred)
+```
+
+```{r}
+LR <- data.frame(prob=rep(0,3320))
+LR$prob <- predict(log.pred, test.dogn, type = "response")
+
+LR$predSubscribed = '0'
+LR$predSubscribed[LR$prob>0.5] = '1'
+
+#Confusion Matrix
+LR$predSubscribed <- as.factor(LR$predSubscribed)
+confusion_logistic <- confusionMatrix(LR$predSubscribed, test.dogn$Subscribed, positive = "1")
+```
+
+## K-Nearest Neighbor - KNN
+```{r}
+
+train.dogn2 <- as.matrix(dognition[train,c(3,12,13,16,22,23)])
+test.dogn2 <- as.matrix(dognition[-train,c(3,12,13,16,22,23)])
+train.subs <-  dognition[train,]$Subscribed
+
+set.seed(1)
+
+#k=1
+pred.knndog <- knn(train.dogn2, test.dogn2, train.subs, k=1)
+confusionMatrix(data = pred.knndog, test.dogn$Subscribed, positive = "1")
+table(pred.knndog, test.dogn$Subscribed)
+mean(pred.knndog == test.dogn$Subscribed)
+
+
+#k=10
+pred.knndog1 <- knn(train.dogn2, test.dogn2, train.subs, k=10)
+confusionMatrix(data = pred.knndog1, test.dogn$Subscribed, positive = "1")
+table(pred.knndog, test.dogn$Subscribed)
+mean(pred.knndog1 == test.dogn$Subscribed)
+
+
+#k=30
+pred.knndog2 <- knn(train.dogn2, test.dogn2, train.subs, k=30)
+confusionMatrix(data = pred.knndog2, test.dogn$Subscribed, positive = "1")
+table(pred.knndog, test.dogn$Subscribed)
+mean(pred.knndog2 == test.dogn$Subscribed)
+
+
+#k=100
+pred.knndog3 <- knn(train.dogn2, test.dogn2, train.subs, k=100)
+confusionMatrix(data = pred.knndog3, test.dogn$Subscribed, positive = "1")
+table(pred.knndog, test.dogn$Subscribed)
+mean(pred.knndog3 == test.dogn$Subscribed)
+
+
+#Highest Accuracy rate in KNN is acheived with k=30 which is 76.69%
+```
+
+## Linear Discriminant Analysis - LDA
+```{r}
+fit.lda <- lda(Subscribed ~ Free_Start_User + DNA_Tested + Dog_Fixed + Max_Dogs+Time.diff.between.first.and.last.game..days., data = dognition, family = binomial, subset = train)
+fit.lda
+
+summary(fit.lda)
+dog.pred.lda <- predict(fit.lda, test.dogn)
+
+table(dog.pred.lda$class, dognition[-train,]$Subscribed)
+mean(dog.pred.lda$class == test.dogn$Subscribed)
+
+confusionMatrix(data = dog.pred.lda$class, test.dogn$Subscribed, positive = "1")
+#Accuracy rate for LDA is 79.01%
+
+```
+
+## Quadratic Discriminant Analysis - QDA
+```{r}
+test.dogn$Subscribed <- as.factor(test.dogn$Subscribed)
+
+fit.qda <- qda(Subscribed ~ Free_Start_User + DNA_Tested + Dog_Fixed + Max_Dogs + Membership_Type+ Time.diff.between.first.and.last.game..days., data = dognition, family = binomial, subset = train)
+fit.qda
+
+summary(fit.qda)
+dog.pred.qda <- predict(fit.qda, test.dogn)
+table(dog.pred.qda$class, dognition[-train,]$Subscribed)
+mean(dog.pred.qda$class==dognition[-train,]$Subscribed)
+
+confusionMatrix(data = dog.pred.qda$class, test.dogn$Subscribed)
+#Accuracy rate for QDA is 78.52%
+
+```
+
+## Decision Tree Analysis
+```{r}
+fit <- rpart(Subscribed~Breed_Type+Gender+Breed+Weight+Dog_Fixed+
+               Breed_Group+Max_Dogs+Free_Start_User,
+             method="class", data=dognition,
+             control=rpart.control(minsplit=5, minbucket=10, cp=0.0005))
+
+printcp(fit)
+plotcp(fit)
+summary(fit)
+str(fit)
+str(fit$y)
+
+# variable importance for tree, ranked
+tree_importance <- fit$variable.importance
+tree_importance <- as.data.frame(as.table(tree_importance))
+tree_importance <- arrange(tree_importance,Freq)
+```
+
+## Random Forest Analysis 
+```{r}
+rf1 <-randomForest(Subscribed~Breed_Type+Gender+Breed+Weight+
+                     Dog_Fixed+Max_Dogs+Free_Start_User+Breed_Group,
+                   data=dognition,mtry=2,ntree=500)
+
+#variable importance for random forest, ranked
+importance <- as.data.frame(as.table(importance(rf1)))
+importance <- arrange(importance,Freq)
+
+#confusion matrix for forest
+confusionMatrix(data = dognition$Subscribed, rf1$predicted, positive = "1")
+```
+\pagebreak
+
+# Findings and managerial implications
+Overall, we found that the logistic regression model currently provides the most accurate results, while also minimizing the errors that are most damaging to our revenue levels. However, the logistic regression model did not dominate all of the other methods and in practice may only offer slight improvements over any of our other models, save for our random forest model.
+
+The logistic model does dominate over a scenario where a tightly run and busy sales team cannot afford to cover all of the leads that are given to them. However, this does not imply that our analysis may be immediately useful to our sales team. Perhaps they are more than able to handle the leads that are brought to them, and with a fairly small error rate, discard those leads that appear of little value to the company. When, then, would our analysis prove of use to our team?
+
+Our model can certainly prove useful to a smaller sales team. However, it would be of great benefit to our analysis and to the company at large if the marketing team were to collect more detailed data about our prospective clients. Most of the variables that were provided in our dataset were exclusively related to the dog, and not directly the owner. And, while inevitably the type of dog will have an influence on whether our service is contracted, the dog owner is the true variable that we would like to predict. Annual salary, age, 
+\pagebreak
+
+# Conclusions
+
+# Appendix: R codes with proper documentations
+
+# References, if any
+
+
+
+
+
+
+
+
+
+
+# Group 9
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+\pagebreak
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
